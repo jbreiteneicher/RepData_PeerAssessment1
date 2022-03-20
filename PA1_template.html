@@ -181,11 +181,11 @@ pre code {
 library(dplyr, warn.conflicts = FALSE)</code></pre>
 <pre><code>## Warning: Paket &#39;dplyr&#39; wurde unter R Version 4.1.3 erstellt</code></pre>
 <pre class="r"><code>library(ggplot2, warn.conflicts = FALSE)
-data &lt;- read.csv(&quot;activity.csv&quot;)
-daily_steps &lt;-aggregate(steps~date,data=data,sum,na.rm=TRUE)
+mydata &lt;- read.csv(&quot;activity.csv&quot;)
+daily_steps &lt;-aggregate(steps~date,data=mydata,sum,na.rm=TRUE)
 mean_steps &lt;- mean(daily_steps$steps, na.rm=TRUE)
 median_steps &lt;- median(daily_steps$steps, na.rm=TRUE)
-head(data)</code></pre>
+head(mydata)</code></pre>
 <pre><code>##   steps       date interval
 ## 1    NA 2012-10-01        0
 ## 2    NA 2012-10-01        5
@@ -193,7 +193,7 @@ head(data)</code></pre>
 ## 4    NA 2012-10-01       15
 ## 5    NA 2012-10-01       20
 ## 6    NA 2012-10-01       25</code></pre>
-<pre class="r"><code>str(data)</code></pre>
+<pre class="r"><code>str(mydata)</code></pre>
 <pre><code>## &#39;data.frame&#39;:    17568 obs. of  3 variables:
 ##  $ steps   : int  NA NA NA NA NA NA NA NA NA NA ...
 ##  $ date    : chr  &quot;2012-10-01&quot; &quot;2012-10-01&quot; &quot;2012-10-01&quot; &quot;2012-10-01&quot; ...
@@ -221,7 +221,7 @@ head(data)</code></pre>
 <h2>What is the average daily activity pattern?</h2>
 <div id="time-series-plot-of-the-average-number-of-steps-taken" class="section level4">
 <h4>4. Time series plot of the average number of steps taken</h4>
-<pre class="r"><code>day_avg &lt;- data %&gt;%
+<pre class="r"><code>day_avg &lt;- mydata %&gt;%
             group_by(interval) %&gt;%
             summarise(avg_steps = mean(steps, na.rm = T))
 ggplot(day_avg, aes(x = interval, y = avg_steps, group = 1)) + 
@@ -240,8 +240,24 @@ ggplot(day_avg, aes(x = interval, y = avg_steps, group = 1)) +
 <h2>Imputing missing values</h2>
 <div id="code-to-describe-and-show-a-strategy-for-imputing-missing-data" class="section level4">
 <h4>6. Code to describe and show a strategy for imputing missing data</h4>
-<pre class="r"><code>sum(is.na(data))</code></pre>
+<pre class="r"><code>sum(is.na(mydata))</code></pre>
 <pre><code>## [1] 2304</code></pre>
+<ul>
+<li>The total number of missing values in the dataset is 2304</li>
+</ul>
+<p>The strategy we are going implement for imputing missing values is to use the mean for the 5-minute interval.</p>
+<pre class="r"><code>newdata = mydata
+length1 = nrow(newdata)
+length2 = nrow(day_avg)
+for (i in 1:length1) {
+  if (is.na(newdata$steps[i])) {
+    for (j in 1:length2) {
+      if (newdata$interval[i] == day_avg[j, 1]) {
+        newdata$steps[i] = day_avg[j, 2]
+      }
+    } 
+  }    
+}</code></pre>
 </div>
 <div id="histogram-of-the-total-number-of-steps-taken-each-day-after-missing-values-are-imputed" class="section level4">
 <h4>7. Histogram of the total number of steps taken each day after missing values are imputed</h4>
@@ -251,6 +267,36 @@ ggplot(day_avg, aes(x = interval, y = avg_steps, group = 1)) +
 <h2>Are there differences in activity patterns between weekdays and weekends?</h2>
 <div id="panel-plot-comparing-the-average-number-of-steps-taken-per-5-minute-interval-across-weekdays-and-weekends" class="section level4">
 <h4>8. Panel plot comparing the average number of steps taken per 5-minute interval across weekdays and weekends</h4>
+<ul>
+<li>Introduce new factor weekday//weekend Sat/Sub German</li>
+</ul>
+<pre class="r"><code>mydata$weekday = TRUE
+weekday = weekdays(as.POSIXct(mydata$date, format = &quot;%Y-%m-%d&quot; ))
+for (i in 1:length(weekday)) {
+  if (weekday[i] == &quot;Samstag&quot; | weekday[i] == &quot;Sonntag&quot;) {
+    mydata$weekday[i] = FALSE
+  }
+}
+dataWeekday = mydata[which(mydata$weekday == TRUE), ]
+dataWeekend = mydata[which(mydata$weekday == FALSE), ]
+
+avgWeekdayPattern = aggregate(dataWeekday$steps, 
+                               by = list(dataWeekday$interval), 
+                               FUN = mean)
+names(avgWeekdayPattern) = c(&quot;interval&quot;, &quot;steps&quot;)
+avgWeekdayPattern$dayTag = &quot;weekday&quot;
+avgWeekendPattern = aggregate(dataWeekend$steps, 
+                              by = list(dataWeekend$interval), 
+                              FUN = mean)
+names(avgWeekendPattern)= c(&quot;interval&quot;, &quot;steps&quot;)
+avgWeekendPattern$dayTag = &quot;weekend&quot;
+
+avgPattern = rbind(avgWeekdayPattern, avgWeekendPattern)</code></pre>
+<p>Now let’s plot</p>
+<pre class="r"><code>library(lattice)
+xyplot(steps ~ interval | dayTag, data = avgPattern, 
+       type = &quot;l&quot;, layout = c(1, 2))</code></pre>
+<p><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAqAAAAHgCAMAAABNUi8GAAAAw1BMVEUAAAAAAC4AADoAAFIAAGYAMy4AM3MAOjoAOpAAXJEAZrY6AAA6AC46ADo6AFI6AGY6My46M3M6gJE6gK86kNtmAABmAC5mADpmOpBmXABmXFJmZmZmo5Fmo8xmtrZmtv+QMwCQOgCQOmaQgFKQkGaQo3OQxZGQxcyQ2/+2XAC2ZgC2gC62kDq2xXO225C25cy2/7a2///bgC7bkDrb5ZHb5czb////o1L/tmb/xXP/25D/5ZH/5a//5cz//7b//9v///+NEI03AAAACXBIWXMAAA7DAAAOwwHHb6hkAAAS/0lEQVR4nO3dAX8a15XG4ddO6khRkiaVcNPuamWlm7VFs/EuamQkBcT3/1SdGRDMIHQN5PJedPg/v9RmZL9njujxDDM2F02APabSDQApKt0AkKLSDQApKt0AkKLSDQApKt0AkKLSDQApKt0AkKLSDQApKt0AkKLSDQApKt0AkKLSDQApKt0AkKLSDQApKt0AkKLSDQApKt0AkKLSDQApKt0AkKLSDQApKt0AkKLSDQApKt0AkKLSDQApKt0AkKLSDQApKt0AkKLSDQApKt0AkKLSDQApKt0AkKLSDQApKt0AkKLSDQApKt0AkKLSDQApKt0AkKI9rrY3+zLuim8rV9BQbW/2ZdwV31auoKHa3uzLuCu+rVxBQ7W92ZdxV3xbuYKGanuzL+Ou+LZyBQ3V9mZfxl3xbeUKGqrtzb6Mu+LbyhVcXQ1YbeuRyjeddbURsMrWc7Z1cHW10s8D9tTWc7Z1cHW10s8D9tTWc7Z1cHW10s8D9tTWc7Z1cHW10s/D/rjvnaZ++dOr965O9sLWc7Z1cHW10s/D/mBAO7aes62Dq6uVfh72BwPasfWcbR1cXa308+D0+7vjatB0PhpdvfltNJDUjOTsQTOgA522vvCfPdW/u/7Cq38woGuOVL7pnBzYgI4GzVweV5N6OhpUA3d7Uo/j7EE9oIN6HhdfqB7UG1dffKzmmgFdc6TyTefk0Aa0Pk1f/f3Nb7ffvJ+e0D998bH9oDm6dn/l9uS8+q/6whUDuuZI5ZvOyaEN6H3v/P7tz999rKZv+pKymr35g/ve980pv/WF8yZS/e4Rr0HXH6l80zk5tAEdXZ3e/vCvt++vjqtT9tT5/EF1Rv/5m/ejUesL582ADhjQjUYq33RODm5AB2/+eTy6+su788W8zR/UZ/T64qn1hXOOoFuMVL7pnBzcgN5+97fqSuhP1YGymb5a68FpfWJf+pXqh+lr0AEDuuZI5ZvOycENaHNh/knVcXI6cFez6/T6QXNNVF+wL75wPp3SQRNiQNccqXzTOTm4AW0GsLm5NL3b2Zy8Zw+aAb3vHbe+cD47jHIfdJORyjedk8MbUKxr6znbOri6WunnAXtq6znbOrhUBlhHqQHdSTXEIXvQUA1xyB40VEMcsgcN1RCH7EFDNcQhe9BQDXHIHjRUQxyyBw3VEIfsQUM1xCF70FANccgeNFRDHLIHDdUQh+xBQzXEIXvQUA1xyB40VEMcsgcN1RCH7EFDNcQhe9BQDXHIHjRUQxyyBw3VEIfsQUM1xCF70FANccgeNFRDHLIHDdUQh+xBQzXEIXvQUA1xyB40VEMcsgcN1RCH7EFDNcShpe2HS335/9OHdyd6/WHtYN42gCktbfe/rv+rjXsXk+vHYf18MG8bwJS6m+O/fpjc/bmZyvqnenO94Nb733b5RxyGpQFpTeXD5cVkeHTzbDBvG1mrIQ51N9uHzerl6PPzyYDCQt3N1oCOe2e8BkVp6m62BtTzGnQn1RCHupv2i6SdVEMcWtpe3GZ6uOQUj+K0tD3uNTfq+2fcqMc+kD1oqIY4ZA8aqiEO2YOGaohD9qChGuKQPWiohjhkDxqqIQ7Zg4ZqiEP2oKEa4pA9aKiGOGQPGqohDtmDhmqIQ/agoRrikD1oqIY4ZA8aqiEO2YOGaohD9qChGuKQPWiohjhkDxqqIQ7Zg4ZqiEP2oKEa4pA9aKiGOLS03Vp+sXqos7WDedsAprS0vXhf/KR/dHP3LQs3oCh1N1sriyRWFVkRzNsGMKPu5tLaTOsHt94/64Mi5fn1QYdHv0gXzwfztpG1GuJQd7M9oNUV0vD5tW/03C/kaAOYUXezcwS9aVZZXi+Ytw1gRt3NpeUXGVAUpqXt9m2m6hTP8osoS0vbreUX6xv1XCShLNmDhmqIQ/agoRrikD1oqIY4ZA8aqiEO2YOGaohD9qChGuKQPWiohjhkDxqqIQ7Zg4ZqiEP2oKEa4pA9aKiGOGQPGqohDtmDhmqIQ/agoRrikD1oqIY4ZA8aqiEO2YOGaohD9qChGuKQPWiohjhkDxqqIQ7Zg4ZqiEP2oKEa4tDSdmt90PT6YcvBvG0AU1rabi3cUG08v24DAwoLdTdbS99MJsOvdn8EZflFJD2//OLk4adfOcWjMHU32wN6fcZrUJSm7mZrQMc/3jCgKE3dzdaA9i+4ikdx6m4uLpLGvea1KeuDoigtbXduM3EERWla2m6tD8qAojzZg4ZqiEP2oKEa4pA9aKiGOGQPGqohDtmDhmqIQ/agoRrikD1oqIY4ZA8aqiEO2YOGaohD9qChGuKQPWiohjhkDxqqIQ7Zg4ZqiEP2oKEa4pA9aKiGOGQPGqohDtmDhmqIQ/agoRrikD1oqIY4ZA8aqiEO2YOGaohDS9ut5RfvThJvi2dAYaGl7cX74se9i8nw9Yd1g3nbAKbU3Wwtvzg8uqmOp6wsgqLU3WyvbjeZHkXXC269f9YHRUpifdDKdXUUfS6Yt42s1RCHupvdAb1mCXAUpu5mZ0Cvn79EYkDhoe5me4361PGTAYWHlrYXt5nuvk0cPxlQeGhpe7H8Yp8FbFGe7EFDNcQhe9BQDXHIHjRUQxyyBw3VEIfsQUM1xCF70FANccgeNFRDHLIHDdUQh+xBQzXEIXvQUA1xyB40VEMcsgcN1RCH7EFDNcQhe9BQDXHIHjRUQxyyBw3VEIeyBse9s8m19Px7QbO3geCUNdg/urk7mb9pxNEGglPOYLNajqr/Jd9ul7UNBKecwXpA+9Vwpt8PmrUNBKeswf7X497RzbjHKR6ZKGtw3NPrDw+XG88nA4pnyB40VEMcsgcN1RCH8garc/xmt0EFrCPPgE5XZE4uOvZMtRGwyuaTmRjQxwWZ+xv/VRIDitWyDujjwo1b3Kgv/TxgT2Ud0McjaGJhZgYUG8k6oM3fc1bzmfj0GgYUG8k6oM01/MxmZ3kGdO6+d9ra+vTqfbFO9kLWAd0eAzrHgHZsPWdbB1dXK/087A8GtGPrOVsdrE7yRzf9MwY05fd3x9Xk6Xw0unrz22hQvR5qRnL2oBnQgZof9Oof9YBeVb9S/+7j+ncdF+3dLu+ADl9/uK7/NdPGE3pQAzoaNHN5XE3q6WhQTeDtST2Oswf1gA6aefziYzXG1Vfrwax/9VP1hd/fnZfu3ivrgD5cnjW3mLb496Clnwer+rx99fc3v91+8356Qq9Gr/2gObrenlQ/jK5evb9/+366dd87H1WRoq3bZR3Q+h8s1wPKjfq0atLu3/783cdqHKevMavxmz+4732v2ayO5q9BPz2e4+uD70HJOqCPR1D+qvMzrk5vf/jX2/fVwH2a3ZU7nz+47736uT5MDuYDWr0W/eJ/6+NpNbNXp5+rHUzWAZ29BuVG/ecM3vzzeHT1l+r15Pwqff6gPtfXF0/zI2hzrm9+uH/7P28P7Ay/g6t4afN/zHRoA3r73d+qK6E/VQfK+nVlo/XgtBnH6WvQ6uKomdTmZenv774/tDM890GLqE7j1UW56mkbNPeR6hP57EFztVRfwTcX7poeQe97zevSgQ7tDM+/ZiqjHsDm5tL09mdzNp89aAb0vne8uA9a//y+nuHDu4bf0YBym2lHbn84tDN8zgHtL/6lCDfqd2NwcGf43RxBNykDrCPLgG4vbzXEoaxBVrdDZsoaZHU7ZKacQVa3Q27KGWR1O+SmrEFWt0NmyhpkdTtkJnvQUA1xyB40VEMcsgcN1RCH7EFDNcQhe9BQDXHIHjRUQxyyBw3VEIfsQUM1xCF70FANccgeNFRDHLIHDdUQh+xBQzXEIXvQUA1xyB40VEMcsgcN1RCH7EFDNcQhe9BQDXHIHjRUQxyyBw3VEIfsQUM1xCFP8OFy/tFzdycrVrjdug0EJ0+wP19upPmghSfvm9+6DQQnS7Be9u7uz81U1j89XQVv6zYQnCzB1lTWH9k9XKwutvXqejgMnuUX24fN6uXo09XvNt8/DoMswdaANis08hoUa5Il2BpQXoNiE7IEuUjCluQJLm4zNR+XyCkea5InOO41N+rrT5LnRj02IHvQUA1xyB40VEMcsgcN1RCH7EFDNcQhe9BQDXHIHjRUQxyyBw3VEIfsQUM1xCF70FANccgeNFRDHLIHDdUQh+xBQzXEIXvQUA1xyB40VEMcsgcN1RCH7EFDNcQhe9BQDXHIHjRUQxyyBw3VEIfsQUM1xCF70FANccgTbC2/WD3UWbY2EJw8wcX74if9o5u7b1m4AeuRJdhaWeTpqiJ/qA0EJ0twaW2mjG0gOFmCrQEdHv0iXSzKsD4oUuzrgw6rK6Thk7VvNt8/DoMswc4R9KZZZTlTGwhOluDS8osMKNYlT7B9m6k6xbP8ItYkT7C1/GJ9o375AMqA4hmyBw3VEIfsQUM1xCF70FANccgeNFRDHLIHDdUQh+xBQzXEIXvQUA1xyB40VEMcsgcN1RCH7EFDNcQhe9BQDXHIHjRUQxyyBw3VEIfsQUM1xCF70FANccgeNFRDHLIHDdUQh+xBQzXEIXvQUA1xyB40VEMcsgcN1RCH7EFDNcQhT7C1PujK9cO2bgPByRNsLdxQbTxZt4EBxTNkCbaWvplMhl9xBMW6ZAm2Fg+bPPz0KwOKdckSbA/o9Vn7NSjrgyLJvj7o+McbLpKwNlmCrQHtX3AVj/XJElxcJI17zQGb9UGxHnmCndtMHEGxNnmCrfVBGVBsQPagoRrikD1oqIY4ZA8aqiEO2YOGaohD9qChGuKQPWiohjhkDxqqIQ7Zg4ZqiEP2oKEa4pA9aKiGOGQPGqohDtmDhmqIQ/agoRrikD1oqIY4ZA8aqiEO2YOGaohD9qChGuKQPWiohjhkDxqqIQ7Zg4ZqiEP2oKEa4pA9aKiGOOQJttYHvTt5um4DA4pnyBNcLNww7l1Mhq8/5GoDwckSbK0POjy6qY6nLH2D9cgSbC+/OJkeRR/LsPwiUuzLL9auq6PoH6iGAyJLsDug16xRj3XJEuwM6PWTSyQGFM+RJdj+EIUVx08GFM+RJ7i4zXT37dPjJwOK58gTXKwP2meFZWxA9qChGuKQPWiohjhkDxqqIQ7Zg4ZqiEP2oKEa4pA9aKiGOGQPGqohDtmDhmqIQ/agoRrikD1oqIY4ZA8aqiEO2YOGaohD9qChGuKQPWiohjhkDxqqIQ7Zg4ZqiEP2oKEa4pA9aKiGOGQPGqohDtmDhmqIQ/agoRrikD1oqIY4ZA8aqiEO2YOGaohD9qChGuKQPbhUBlhHqQHdSbW92ZdxV3xbuYKGanuzL+Ou+LZyBQ3V9mZfxl3xbeUKGqrtzb6Mu+LbyhU0VNubfRl3xbeVK2iotjf7Mu6KbytX0FBtb/Zl3BXfVq4g4KDSDQApKt0AkKLSDQApKt0AkKLSDQApKt0AkKLSDQApKt0AkKLSDWzs4VKPn2N7d/L00xh3tKvJ/FN0d7+v6qHOPLuqnsEVH1q9T1S6gY0tPtB23LuYDHf5/C52VW+s+njnneyrf3Sz+rN6s++qfgZXfmz1/lDpBjbV+kjw4dFNdTTY3SG0/enjk+FXOz2CtvZVP9yl1q7qn3a9uz9IpRvY1NJzWh8DHLt6+OnXnQ5oa187fi3R3lX9x7v+Y77HVLqBTS0N6PUOn972rq7Pdjs3rX0Nj37Z6Uvrzp+7S+33fL70Ad3pC6jWrsY/3vgGtLpC2uVL6/a31TvjNWhmnQG93uklaGtX/Ysdn3k7R9DdvrReejXBa9C82lcuO/7Dv9jVuNe8qXuH592lKxfTtR8DugOLmyQ7vRfT3dVk59cu7dtM1Sl+l3/0Frt6uOQUn111NKuf0ur/xf7OD2vzXU12PqCtfdU36nf59w+tXXGjHvhDVLoBIEWlGwBSVLoBIEWlGwBSVLoBIEWlGwBSVLoBIEWlGwBSVLoBIEWlGwBSVLoBIEWlGwBSVLoBIEWlGwBSVLoBIEWlG3jxOm98Hn7uHxrv8m3SIal0A6F8fvwY0A2pdAOhMKDZqXQDL149cuPef/Wki3oxs6ObybWaxb/Gf/3v2Vum6ne596ePGdANqXQDL950QKsRvH79oRm/+s36dydn1RePbh4u67dP9o9u6rdR1r/AgG5IpRt48aYD2rxD8mL+uH7fcPOgflNv9aB583n1GxjQTal0Ay/edCinZ+/FgpCzaW0vETmsz/EM6IZUuoEX78mAamo6oM0qCdPXpV/+yhF0cyrdwIu3+gg6ebweGn75f9XP9dmdU/w2VLqBF295QOcjOH0w7v1H9TK0WcpmyCl+cyrdwIvXHdCz2ZJ7/dklffVIXz8ePHXGgG5KpRt48doDWk3j7D5oc/HezOKwuRVafe31h8XUYl0q3QCQotINACkq3QCQotINACkq3QCQotINACkq3QCQotINACkq3QCQotINACkq3QCQotINACkq3QCQotINACkq3QCQotINACkq3QCQotINACkq3QCQotINACkq3QCQotINACkq3QCQotINACn/Bl/XV+s1mmpmAAAAAElFTkSuQmCC" /><!-- --></p>
 </div>
 <div id="all-of-the-r-code-needed-to-reproduce-the-results-numbers-plots-etc.-in-the-report" class="section level4">
 <h4>9. All of the R code needed to reproduce the results (numbers, plots, etc.) in the report</h4>

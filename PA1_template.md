@@ -20,11 +20,11 @@ library(dplyr, warn.conflicts = FALSE)
 
 ```r
 library(ggplot2, warn.conflicts = FALSE)
-data <- read.csv("activity.csv")
-daily_steps <-aggregate(steps~date,data=data,sum,na.rm=TRUE)
+mydata <- read.csv("activity.csv")
+daily_steps <-aggregate(steps~date,data=mydata,sum,na.rm=TRUE)
 mean_steps <- mean(daily_steps$steps, na.rm=TRUE)
 median_steps <- median(daily_steps$steps, na.rm=TRUE)
-head(data)
+head(mydata)
 ```
 
 ```
@@ -38,7 +38,7 @@ head(data)
 ```
 
 ```r
-str(data)
+str(mydata)
 ```
 
 ```
@@ -68,7 +68,7 @@ hist(daily_steps$steps,
 #### 4. Time series plot of the average number of steps taken
 
 ```r
-day_avg <- data %>%
+day_avg <- mydata %>%
             group_by(interval) %>%
             summarise(avg_steps = mean(steps, na.rm = T))
 ggplot(day_avg, aes(x = interval, y = avg_steps, group = 1)) + 
@@ -88,18 +88,72 @@ max_interval <- day_avg[which.max(day_avg$avg_steps), ]
 #### 6. Code to describe and show a strategy for imputing missing data
 
 ```r
-sum(is.na(data))
+sum(is.na(mydata))
 ```
 
 ```
 ## [1] 2304
 ```
+- The total number of missing values in the dataset is 2304
+
+The strategy we are going implement for imputing missing values is to use the mean for the 5-minute interval.
+
+```r
+newdata = mydata
+length1 = nrow(newdata)
+length2 = nrow(day_avg)
+for (i in 1:length1) {
+  if (is.na(newdata$steps[i])) {
+    for (j in 1:length2) {
+      if (newdata$interval[i] == day_avg[j, 1]) {
+        newdata$steps[i] = day_avg[j, 2]
+      }
+    } 
+  }    
+}
+```
 
 #### 7. Histogram of the total number of steps taken each day after missing values are imputed
 
 
-
 ## Are there differences in activity patterns between weekdays and weekends?
 #### 8. Panel plot comparing the average number of steps taken per 5-minute interval across weekdays and weekends
+- Introduce new factor weekday//weekend Sat/Sub German
+
+```r
+mydata$weekday = TRUE
+weekday = weekdays(as.POSIXct(mydata$date, format = "%Y-%m-%d" ))
+for (i in 1:length(weekday)) {
+  if (weekday[i] == "Samstag" | weekday[i] == "Sonntag") {
+    mydata$weekday[i] = FALSE
+  }
+}
+dataWeekday = mydata[which(mydata$weekday == TRUE), ]
+dataWeekend = mydata[which(mydata$weekday == FALSE), ]
+
+avgWeekdayPattern = aggregate(dataWeekday$steps, 
+                               by = list(dataWeekday$interval), 
+                               FUN = mean)
+names(avgWeekdayPattern) = c("interval", "steps")
+avgWeekdayPattern$dayTag = "weekday"
+avgWeekendPattern = aggregate(dataWeekend$steps, 
+                              by = list(dataWeekend$interval), 
+                              FUN = mean)
+names(avgWeekendPattern)= c("interval", "steps")
+avgWeekendPattern$dayTag = "weekend"
+
+avgPattern = rbind(avgWeekdayPattern, avgWeekendPattern)
+```
+
+Now let's plot
+
+```r
+library(lattice)
+xyplot(steps ~ interval | dayTag, data = avgPattern, 
+       type = "l", layout = c(1, 2))
+```
+
+![](PA1_template_files/figure-html/unnamed-chunk-7-1.png)<!-- -->
+
 #### 9. All of the R code needed to reproduce the results (numbers, plots, etc.) in the report
 
